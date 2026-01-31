@@ -6,12 +6,12 @@ from datetime import datetime, timezone, date, timedelta
 from typing import Dict, List, Any, Optional
 
 from mcp.server.fastmcp import FastMCP
-from dotenv import load_dotenv
 
-from .ticktick_client import TickTickClient
+from .ticktick_client import TickTickClient, AuthenticationError
+from .credentials import get_access_token
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # Create FastMCP server
@@ -23,27 +23,27 @@ ticktick = None
 def initialize_client():
     global ticktick
     try:
-        # Check if .env file exists with access token
-        load_dotenv()
-        
-        # Check if we have valid credentials
-        if os.getenv("TICKTICK_ACCESS_TOKEN") is None:
-            logger.error("No access token found in .env file. Please run 'uv run -m ticktick_mcp.cli auth' to authenticate.")
+        # Check if we have stored credentials
+        if not get_access_token():
+            logger.error("No access token found. Please run 'uvx ticktick-mcp-server auth' to authenticate.")
             return False
-        
+
         # Initialize the client
         ticktick = TickTickClient()
         logger.info("TickTick client initialized successfully")
-        
+
         # Test API connectivity
         projects = ticktick.get_projects()
-        if 'error' in projects:
+        if isinstance(projects, dict) and 'error' in projects:
             logger.error(f"Failed to access TickTick API: {projects['error']}")
-            logger.error("Your access token may have expired. Please run 'uv run -m ticktick_mcp.cli auth' to refresh it.")
             return False
-            
+
         logger.info(f"Successfully connected to TickTick API with {len(projects)} projects")
         return True
+
+    except AuthenticationError as e:
+        logger.error(f"Authentication error: {e}")
+        return False
     except Exception as e:
         logger.error(f"Failed to initialize TickTick client: {e}")
         return False
