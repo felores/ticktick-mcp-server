@@ -1,8 +1,23 @@
 # TickTick MCP Server
 
-A **security-hardened** [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for TickTick that enables managing your tasks directly through Claude.
+A **security-hardened** [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for TickTick that enables managing your tasks directly through any MCP-compatible client.
 
 [![PyPI version](https://badge.fury.io/py/ticktick-mcp-server.svg)](https://pypi.org/project/ticktick-mcp-server/)
+
+## Works With Any MCP Client
+
+This server works with **any MCP-compatible client** — just one command:
+
+```bash
+uvx ticktick-mcp-server
+```
+
+That's it. No complex setup, no dependencies to manage. Works with:
+- **Claude Desktop**
+- **Cursor**
+- **Cline**
+- **Continue**
+- **Any MCP-compatible IDE or tool**
 
 ## Requirements
 
@@ -19,12 +34,9 @@ A **security-hardened** [Model Context Protocol (MCP)](https://modelcontextproto
 2. Create a new app with redirect URI: `http://localhost:8080/callback`
 3. Copy your **Client ID** and **Client Secret**
 
-### 2. Configure Claude Desktop
+### 2. Configure Your MCP Client
 
-Add to your Claude Desktop config:
-
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+Add this to your MCP client config:
 
 ```json
 {
@@ -37,6 +49,17 @@ Add to your Claude Desktop config:
 }
 ```
 
+<details>
+<summary><strong>Config file locations</strong></summary>
+
+| Client | macOS | Windows |
+|--------|-------|---------|
+| Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Cursor | `~/.cursor/mcp.json` | `%USERPROFILE%\.cursor\mcp.json` |
+| Cline | VSCode settings | VSCode settings |
+
+</details>
+
 ### 3. Authenticate
 
 Run once to connect your TickTick account:
@@ -45,9 +68,9 @@ Run once to connect your TickTick account:
 uvx ticktick-mcp-server auth
 ```
 
-### 4. Restart Claude Desktop
+### 4. Restart Your Client
 
-That's it! Ask Claude things like:
+That's it! Now you can:
 - "Show me all my TickTick projects"
 - "What tasks are due today?"
 - "Create a task to buy groceries in my Shopping list"
