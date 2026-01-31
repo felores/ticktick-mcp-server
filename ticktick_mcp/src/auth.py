@@ -7,6 +7,7 @@ without manually copying and pasting tokens.
 """
 
 import os
+import stat
 import webbrowser
 import json
 import time
@@ -14,6 +15,7 @@ import base64
 import http.server
 import socketserver
 import urllib.parse
+import re
 import requests
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Any
@@ -28,16 +30,37 @@ DEFAULT_SCOPES = ["tasks:read", "tasks:write"]
 
 class OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):
     """Handle OAuth callback requests."""
-    
-    # Class variable to store the authorization code
+
+    # Class variables to store authentication state
     auth_code = None
-    
+    expected_state = None
+
     def do_GET(self):
         """Handle GET requests to the callback URL."""
         # Parse query parameters
         query = urllib.parse.urlparse(self.path).query
         params = urllib.parse.parse_qs(query)
-        
+
+        # Validate state parameter for CSRF protection
+        if OAuthCallbackHandler.expected_state:
+            received_state = params.get('state', [None])[0]
+            if received_state != OAuthCallbackHandler.expected_state:
+                logger.warning("CSRF attack detected: state parameter mismatch")
+                self.send_response(403)
+                self.send_header('Content-type', 'text/html')
+                self.end_headers()
+                response = """
+                <html>
+                <head><title>TickTick MCP Server - Security Error</title></head>
+                <body>
+                    <h1>Security Error</h1>
+                    <p>Invalid state parameter. This may indicate a CSRF attack.</p>
+                </body>
+                </html>
+                """
+                self.wfile.write(response.encode())
+                return
+
         if 'code' in params:
             # Store the authorization code
             OAuthCallbackHandler.auth_code = params['code'][0]
@@ -197,48 +220,59 @@ class TickTickAuth:
     def start_auth_flow(self, scopes: list = None) -> str:
         """
         Start the OAuth flow by opening the browser and waiting for the callback.
-        
+
         Args:
             scopes: List of OAuth scopes to request
-            
+
         Returns:
             The obtained access token or an error message
         """
         if not self.client_id or not self.client_secret:
             return "TickTick client ID or client secret is missing. Please set up your credentials first."
-        
+
+        # Clear any previous state to prevent race conditions
+        OAuthCallbackHandler.auth_code = None
+        OAuthCallbackHandler.expected_state = None
+
         # Generate a random state parameter for CSRF protection
         state = base64.urlsafe_b64encode(os.urandom(30)).decode('utf-8')
-        
+        OAuthCallbackHandler.expected_state = state
+
         # Get the authorization URL
         auth_url = self.get_authorization_url(scopes, state)
-        
+
         print(f"Opening browser for TickTick authorization...")
         print(f"If the browser doesn't open automatically, please visit this URL:")
         print(auth_url)
-        
+
         # Open the browser for the user to authorize
         webbrowser.open(auth_url)
-        
+
         # Start a local server to handle the OAuth callback
         httpd = None
         try:
-            # Use a socket server to handle the callback
-            OAuthCallbackHandler.auth_code = None
-            httpd = socketserver.TCPServer(("", self.port), OAuthCallbackHandler)
-            
+            # Use a socket server to handle the callback - bind to localhost only for security
+            httpd = socketserver.TCPServer(("127.0.0.1", self.port), OAuthCallbackHandler)
+
             print(f"Waiting for authentication callback on port {self.port}...")
-            
+
             # Run the server until we get the authorization code
             # Set a timeout for the server
             timeout = 300  # 5 minutes
             start_time = time.time()
-            
+            max_requests = 100  # Rate limiting to prevent DoS
+            request_count = 0
+
             while not OAuthCallbackHandler.auth_code:
                 # Handle one request with a short timeout
                 httpd.timeout = 1.0
                 httpd.handle_request()
-                
+                request_count += 1
+
+                # Rate limiting check
+                if request_count > max_requests:
+                    return "Authentication failed: Too many requests. Possible attack detected."
+
                 # Check if we've timed out
                 if time.time() - start_time > timeout:
                     return "Authentication timed out. Please try again."
@@ -304,11 +338,14 @@ class TickTickAuth:
             logger.error(f"Error exchanging code for token: {e}")
             if hasattr(e, 'response') and e.response is not None:
                 try:
-                    error_details = e.response.json()
-                    return f"Error exchanging code for token: {error_details}"
-                except:
-                    return f"Error exchanging code for token: {e.response.text}"
-            return f"Error exchanging code for token: {str(e)}"
+                    error_data = e.response.json()
+                    # Only expose safe error fields, not full response
+                    error_msg = error_data.get('error_description',
+                                error_data.get('error', 'Unknown error'))
+                    return f"Authentication failed: {error_msg}"
+                except (ValueError, json.JSONDecodeError):
+                    pass
+            return "Authentication failed. Check credentials and try again."
     
     def _save_tokens_to_env(self) -> None:
         """Save the tokens to the .env file."""
@@ -342,7 +379,10 @@ class TickTickAuth:
         with open(env_path, 'w') as f:
             for key, value in env_content.items():
                 f.write(f"{key}={value}\n")
-        
+
+        # Set secure file permissions (owner read/write only - 0600)
+        os.chmod(env_path, stat.S_IRUSR | stat.S_IWUSR)
+
         logger.info("Tokens saved to .env file")
 
 def setup_auth_cli():

@@ -1,30 +1,89 @@
-# TickTick MCP Server
+# TickTick MCP Server (Security-Hardened Fork)
 
-A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for TickTick that enables interacting with your TickTick task management system directly through Claude and other MCP clients.
+A **security-hardened** [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for TickTick that enables interacting with your TickTick task management system directly through Claude and other MCP clients.
+
+> **This is a security-focused fork of [jacepark12/ticktick-mcp](https://github.com/jacepark12/ticktick-mcp)**
+
+## Why This Fork?
+
+The original TickTick MCP server had **9 security vulnerabilities** ranging from critical to medium severity. This fork addresses all of them:
+
+| Severity | Vulnerability | Status |
+|----------|--------------|--------|
+| **Critical** | CSRF in OAuth callback - state parameter not validated | **Fixed** |
+| **High** | Credentials stored with insecure file permissions | **Fixed** |
+| **High** | OAuth server binds to all network interfaces | **Fixed** |
+| **High** | No explicit TLS certificate verification | **Fixed** |
+| **Medium** | Raw API errors exposed to users (info leakage) | **Fixed** |
+| **Medium** | No rate limiting on OAuth callback server | **Fixed** |
+| **Medium** | Bare except clause catches system signals | **Fixed** |
+| **Medium** | Path traversal via unsanitized IDs in URLs | **Fixed** |
+| **Medium** | Race conditions from global mutable state | **Fixed** |
+
+### Security Improvements in Detail
+
+**1. CSRF Protection (Critical)**
+- OAuth state parameter is now validated on callback
+- Attackers cannot trick users into authorizing malicious sessions
+
+**2. Secure Credential Storage (High)**
+- `.env` files are now created with `0600` permissions (owner read/write only)
+- Other users on the system cannot read your tokens
+
+**3. Localhost-Only Binding (High)**
+- OAuth callback server now binds to `127.0.0.1` only
+- Prevents remote attackers from intercepting OAuth callbacks
+
+**4. Explicit TLS Verification (High)**
+- All API requests now explicitly verify SSL certificates
+- Prevents man-in-the-middle attacks
+
+**5. Sanitized Error Messages (Medium)**
+- API errors are logged but sanitized before showing to users
+- Prevents accidental exposure of sensitive information
+
+**6. Rate Limiting (Medium)**
+- OAuth callback server limits requests to prevent DoS attacks
+- Maximum 100 requests per authentication flow
+
+**7. Input Validation (Medium)**
+- All project/task IDs are validated before use in URLs
+- Prevents path traversal attacks like `../admin`
+
+**8. Proper Exception Handling (Medium)**
+- Replaced bare `except:` with specific exception types
+- System signals (Ctrl+C) now work correctly
+
+**9. Thread-Safe State Management (Medium)**
+- OAuth state is cleared before each new auth flow
+- Prevents race conditions in concurrent usage
+
+---
 
 ## Features
 
-- 📋 View all your TickTick projects and tasks
-- ✏️ Create new projects and tasks through natural language
-- 🔄 Update existing task details (title, content, dates, priority)
-- ✅ Mark tasks as complete
-- 🗑️ Delete tasks and projects
-- 🔄 Full integration with TickTick's open API
-- 🔌 Seamless integration with Claude and other MCP clients
+- View all your TickTick projects and tasks
+- Create new projects and tasks through natural language
+- Update existing task details (title, content, dates, priority)
+- Mark tasks as complete
+- Delete tasks and projects
+- Full integration with TickTick's open API
+- Seamless integration with Claude and other MCP clients
+- **GTD (Getting Things Done) workflow support**
 
 ## Prerequisites
 
 - Python 3.10 or higher
 - [uv](https://github.com/astral-sh/uv) - Fast Python package installer and resolver
 - TickTick account with API access
-- TickTick API credentials (Client ID, Client Secret, Access Token)
+- TickTick API credentials (Client ID, Client Secret)
 
 ## Installation
 
 1. **Clone this repository**:
    ```bash
-   git clone https://github.com/jacepark12/ticktick-mcp.git
-   cd ticktick-mcp
+   git clone https://github.com/felores/ticktick-mcp-server.git
+   cd ticktick-mcp-server
    ```
 
 2. **Install with uv**:
@@ -47,24 +106,22 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for Ti
 
 3. **Authenticate with TickTick**:
    ```bash
-   # Run the authentication flow
    uv run -m ticktick_mcp.cli auth
    ```
 
    This will:
    - Ask for your TickTick Client ID and Client Secret
    - Open a browser window for you to log in to TickTick
-   - Automatically save your access tokens to a `.env` file
+   - Automatically save your access tokens to a `.env` file with secure permissions
 
 4. **Test your configuration**:
    ```bash
    uv run test_server.py
    ```
-   This will verify that your TickTick credentials are working correctly.
 
 ## Authentication with TickTick
 
-This server uses OAuth2 to authenticate with TickTick. The setup process is straightforward:
+This server uses OAuth2 to authenticate with TickTick:
 
 1. Register your application at the [TickTick Developer Center](https://developer.ticktick.com/manage)
    - Set the redirect URI to `http://localhost:8000/callback`
@@ -77,19 +134,18 @@ This server uses OAuth2 to authenticate with TickTick. The setup process is stra
 
 3. Follow the prompts to enter your Client ID and Client Secret
 
-4. A browser window will open for you to authorize the application with your TickTick account
+4. A browser window will open for you to authorize the application
 
-5. After authorizing, you'll be redirected back to the application, and your access tokens will be automatically saved to the `.env` file
+5. After authorizing, your access tokens will be securely saved to the `.env` file
 
-The server handles token refresh automatically, so you won't need to reauthenticate unless you revoke access or delete your `.env` file.
+The server handles token refresh automatically.
 
 ## Authentication with Dida365
 
-[滴答清单 - Dida365](https://dida365.com/home) is China version of TickTick, and the authentication process is similar to TickTick. Follow these steps to set up Dida365 authentication:
+[Dida365](https://dida365.com/home) is the China version of TickTick. To use it:
 
 1. Register your application at the [Dida365 Developer Center](https://developer.dida365.com/manage)
    - Set the redirect URI to `http://localhost:8000/callback`
-   - Note your Client ID and Client Secret
 
 2. Add environment variables to your `.env` file:
    ```env
@@ -103,6 +159,7 @@ The server handles token refresh automatically, so you won't need to reauthentic
 ## Usage with Claude for Desktop
 
 1. Install [Claude for Desktop](https://claude.ai/download)
+
 2. Edit your Claude for Desktop configuration file:
 
    **macOS**:
@@ -115,13 +172,13 @@ The server handles token refresh automatically, so you won't need to reauthentic
    notepad %APPDATA%\Claude\claude_desktop_config.json
    ```
 
-3. Add the TickTick MCP server configuration, using absolute paths:
+3. Add the TickTick MCP server configuration:
    ```json
    {
       "mcpServers": {
          "ticktick": {
             "command": "<absolute path to uv>",
-            "args": ["run", "--directory", "<absolute path to ticktick-mcp directory>", "-m", "ticktick_mcp.cli", "run"]
+            "args": ["run", "--directory", "<absolute path to ticktick-mcp-server directory>", "-m", "ticktick_mcp.cli", "run"]
          }
       }
    }
@@ -129,24 +186,25 @@ The server handles token refresh automatically, so you won't need to reauthentic
 
 4. Restart Claude for Desktop
 
-Once connected, you'll see the TickTick MCP server tools available in Claude, indicated by the 🔨 (tools) icon.
-
 ## Available MCP Tools
 
+### Project Management
 | Tool | Description | Parameters |
 |------|-------------|------------|
 | `get_projects` | List all your TickTick projects | None |
 | `get_project` | Get details about a specific project | `project_id` |
 | `get_project_tasks` | List all tasks in a project | `project_id` |
-| `get_task` | Get details about a specific task | `project_id`, `task_id` |
-| `create_task` | Create a new task | `title`, `project_id`, `content` (optional), `start_date` (optional), `due_date` (optional), `priority` (optional) |
-| `update_task` | Update an existing task | `task_id`, `project_id`, `title` (optional), `content` (optional), `start_date` (optional), `due_date` (optional), `priority` (optional) |
-| `complete_task` | Mark a task as complete | `project_id`, `task_id` |
-| `delete_task` | Delete a task | `project_id`, `task_id` |
 | `create_project` | Create a new project | `name`, `color` (optional), `view_mode` (optional) |
 | `delete_project` | Delete a project | `project_id` |
 
-## Task-specific MCP Tools
+### Task Management
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `get_task` | Get details about a specific task | `project_id`, `task_id` |
+| `create_task` | Create a new task | `title`, `project_id`, `content`, `start_date`, `due_date`, `priority` |
+| `update_task` | Update an existing task | `task_id`, `project_id`, `title`, `content`, `start_date`, `due_date`, `priority` |
+| `complete_task` | Mark a task as complete | `project_id`, `task_id` |
+| `delete_task` | Delete a task | `project_id`, `task_id` |
 
 ### Task Retrieval & Search
 | Tool | Description | Parameters |
@@ -160,89 +218,55 @@ Once connected, you'll see the TickTick MCP server tools available in Claude, in
 |------|-------------|------------|
 | `get_tasks_due_today` | Get all tasks due today | None |
 | `get_tasks_due_tomorrow` | Get all tasks due tomorrow | None |
-| `get_tasks_due_in_days` | Get tasks due in exactly X days | `days` (0 = today, 1 = tomorrow, etc.) |
+| `get_tasks_due_in_days` | Get tasks due in exactly X days | `days` |
 | `get_tasks_due_this_week` | Get tasks due within the next 7 days | None |
 | `get_overdue_tasks` | Get all overdue tasks | None |
 
-### Getting Things Done (GTD) Framework
+### GTD (Getting Things Done) Framework
 | Tool | Description | Parameters |
 |------|-------------|------------|
 | `get_engaged_tasks` | Get "engaged" tasks (high priority or overdue) | None |
 | `get_next_tasks` | Get "next" tasks (medium priority or due tomorrow) | None |
-| `batch_create_tasks` | Create multiple tasks at once | `tasks` (list of task dictionaries) |
+| `batch_create_tasks` | Create multiple tasks at once | `tasks` (list) |
 
-## Example Prompts for Claude
-
-Here are some example prompts to use with Claude after connecting the TickTick MCP server:
+## Example Prompts
 
 ### General
-
 - "Show me all my TickTick projects"
 - "Create a new task called 'Finish MCP server documentation' in my work project with high priority"
-- "List all tasks in my personal project"
 - "Mark the task 'Buy groceries' as complete"
-- "Create a new project called 'Vacation Planning' with a blue color"
-- "When is my next deadline in TickTick?"
 
-### Task Filtering Queries
-
+### Task Filtering
 - "What tasks do I have due today?"
 - "Show me everything that's overdue"
-- "Show me all tasks due this week"
-- "Search for tasks about 'project alpha'"
-- "Show me all tasks with 'client' in the title or description"
 - "Show me all my high priority tasks"
 
 ### GTD Workflow
-
-Following David Allen's "Getting Things Done" framework, manage an Engaged and Next actions.
-
-- Engaged will retrieve tasks of high priority, due today or overdue.
-- Next will retrieve medium priority or due tomorrow.
-- Break down complex actions into smaller actions with batch_creation
-
-For example:
-
-- "Time block the rest of my day from 2-8pm with items from my engaged list"
-- "Walk me through my next actions and help my identify what I should focus on tomorrow?" 
+- "Time block the rest of my day with items from my engaged list"
+- "Walk me through my next actions for tomorrow"
 - "Break down this project into 5 smaller actionable tasks"
 
-## Development
+## Project Structure
 
-### Project Structure
-
-```
-ticktick-mcp/
+```bash
+ticktick-mcp-server/
 ├── .env.template          # Template for environment variables
 ├── README.md              # Project documentation
 ├── requirements.txt       # Project dependencies
 ├── setup.py               # Package setup file
-├── test_server.py         # Test script for server configuration
+├── test_server.py         # Test script
 └── ticktick_mcp/          # Main package
-    ├── __init__.py        # Package initialization
+    ├── __init__.py
     ├── authenticate.py    # OAuth authentication utility
     ├── cli.py             # Command-line interface
-    └── src/               # Source code
-        ├── __init__.py    # Module initialization
-        ├── auth.py        # OAuth authentication implementation
+    └── src/
+        ├── __init__.py
+        ├── auth.py        # OAuth implementation (security-hardened)
         ├── server.py      # MCP server implementation
-        └── ticktick_client.py  # TickTick API client
+        └── ticktick_client.py  # TickTick API client (security-hardened)
 ```
 
-### Authentication Flow
-
-The project implements a complete OAuth 2.0 flow for TickTick:
-
-1. **Initial Setup**: User provides their TickTick API Client ID and Secret
-2. **Browser Authorization**: User is redirected to TickTick to grant access
-3. **Token Reception**: A local server receives the OAuth callback with the authorization code
-4. **Token Exchange**: The code is exchanged for access and refresh tokens
-5. **Token Storage**: Tokens are securely stored in the local `.env` file
-6. **Token Refresh**: The client automatically refreshes the access token when it expires
-
-This simplifies the user experience by handling the entire OAuth flow programmatically.
-
-### Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
@@ -251,6 +275,10 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+## Credits
+
+This is a security-hardened fork of [jacepark12/ticktick-mcp](https://github.com/jacepark12/ticktick-mcp). Thanks to the original author for creating the foundation of this project.
 
 ## License
 

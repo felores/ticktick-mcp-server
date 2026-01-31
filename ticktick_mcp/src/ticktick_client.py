@@ -1,6 +1,8 @@
 import os
+import stat
 import json
 import base64
+import re
 import requests
 import logging
 from pathlib import Path
@@ -67,8 +69,8 @@ class TickTickClient:
         }
         
         try:
-            # Send the token request
-            response = requests.post(self.token_url, data=token_data, headers=headers)
+            # Send the token request with explicit TLS verification
+            response = requests.post(self.token_url, data=token_data, headers=headers, verify=True)
             response.raise_for_status()
             
             # Parse the response
@@ -126,9 +128,29 @@ class TickTickClient:
         with open(env_path, 'w') as f:
             for key, value in env_content.items():
                 f.write(f"{key}={value}\n")
-        
+
+        # Set secure file permissions (owner read/write only - 0600)
+        os.chmod(env_path, stat.S_IRUSR | stat.S_IWUSR)
+
         logger.debug("Tokens saved to .env file")
-    
+
+    def _validate_id(self, id_value: str, id_name: str) -> None:
+        """
+        Validate that an ID contains only safe characters to prevent path traversal.
+
+        Args:
+            id_value: The ID value to validate
+            id_name: The name of the ID field (for error messages)
+
+        Raises:
+            ValueError: If the ID is empty or contains unsafe characters
+        """
+        if not id_value:
+            raise ValueError(f"{id_name} cannot be empty")
+        # Allow alphanumeric, hyphens, underscores (typical ID formats)
+        if not re.match(r'^[a-zA-Z0-9_-]+$', id_value):
+            raise ValueError(f"Invalid {id_name} format")
+
     def _make_request(self, method: str, endpoint: str, data=None) -> Dict:
         """
         Makes a request to the TickTick API.
@@ -144,29 +166,29 @@ class TickTickClient:
         url = f"{self.base_url}{endpoint}"
         
         try:
-            # Make the request
+            # Make the request with explicit TLS verification
             if method == "GET":
-                response = requests.get(url, headers=self.headers)
+                response = requests.get(url, headers=self.headers, verify=True)
             elif method == "POST":
-                response = requests.post(url, headers=self.headers, json=data)
+                response = requests.post(url, headers=self.headers, json=data, verify=True)
             elif method == "DELETE":
-                response = requests.delete(url, headers=self.headers)
+                response = requests.delete(url, headers=self.headers, verify=True)
             else:
                 raise ValueError(f"Unsupported HTTP method: {method}")
-            
+
             # Check if the request was unauthorized (401)
             if response.status_code == 401:
                 logger.info("Access token expired. Attempting to refresh...")
-                
+
                 # Try to refresh the access token
                 if self._refresh_access_token():
                     # Retry the request with the new token
                     if method == "GET":
-                        response = requests.get(url, headers=self.headers)
+                        response = requests.get(url, headers=self.headers, verify=True)
                     elif method == "POST":
-                        response = requests.post(url, headers=self.headers, json=data)
+                        response = requests.post(url, headers=self.headers, json=data, verify=True)
                     elif method == "DELETE":
-                        response = requests.delete(url, headers=self.headers)
+                        response = requests.delete(url, headers=self.headers, verify=True)
             
             # Raise an exception for 4xx/5xx status codes
             response.raise_for_status()
@@ -187,10 +209,12 @@ class TickTickClient:
     
     def get_project(self, project_id: str) -> Dict:
         """Gets a specific project by ID."""
+        self._validate_id(project_id, "project_id")
         return self._make_request("GET", f"/project/{project_id}")
     
     def get_project_with_data(self, project_id: str) -> Dict:
         """Gets project with tasks and columns."""
+        self._validate_id(project_id, "project_id")
         return self._make_request("GET", f"/project/{project_id}/data")
     
     def create_project(self, name: str, color: str = "#F18181", view_mode: str = "list", kind: str = "TASK") -> Dict:
@@ -203,9 +227,10 @@ class TickTickClient:
         }
         return self._make_request("POST", "/project", data)
     
-    def update_project(self, project_id: str, name: str = None, color: str = None, 
+    def update_project(self, project_id: str, name: str = None, color: str = None,
                        view_mode: str = None, kind: str = None) -> Dict:
         """Updates an existing project."""
+        self._validate_id(project_id, "project_id")
         data = {}
         if name:
             data["name"] = name
@@ -220,17 +245,21 @@ class TickTickClient:
     
     def delete_project(self, project_id: str) -> Dict:
         """Deletes a project."""
+        self._validate_id(project_id, "project_id")
         return self._make_request("DELETE", f"/project/{project_id}")
     
     # Task methods
     def get_task(self, project_id: str, task_id: str) -> Dict:
         """Gets a specific task by project ID and task ID."""
+        self._validate_id(project_id, "project_id")
+        self._validate_id(task_id, "task_id")
         return self._make_request("GET", f"/project/{project_id}/task/{task_id}")
     
-    def create_task(self, title: str, project_id: str, content: str = None, 
-                   start_date: str = None, due_date: str = None, 
+    def create_task(self, title: str, project_id: str, content: str = None,
+                   start_date: str = None, due_date: str = None,
                    priority: int = 0, is_all_day: bool = False) -> Dict:
         """Creates a new task."""
+        self._validate_id(project_id, "project_id")
         data = {
             "title": title,
             "projectId": project_id
@@ -249,10 +278,12 @@ class TickTickClient:
             
         return self._make_request("POST", "/task", data)
     
-    def update_task(self, task_id: str, project_id: str, title: str = None, 
-                   content: str = None, priority: int = None, 
+    def update_task(self, task_id: str, project_id: str, title: str = None,
+                   content: str = None, priority: int = None,
                    start_date: str = None, due_date: str = None) -> Dict:
         """Updates an existing task."""
+        self._validate_id(task_id, "task_id")
+        self._validate_id(project_id, "project_id")
         data = {
             "id": task_id,
             "projectId": project_id
@@ -273,27 +304,33 @@ class TickTickClient:
     
     def complete_task(self, project_id: str, task_id: str) -> Dict:
         """Marks a task as complete."""
+        self._validate_id(project_id, "project_id")
+        self._validate_id(task_id, "task_id")
         return self._make_request("POST", f"/project/{project_id}/task/{task_id}/complete")
     
     def delete_task(self, project_id: str, task_id: str) -> Dict:
         """Deletes a task."""
+        self._validate_id(project_id, "project_id")
+        self._validate_id(task_id, "task_id")
         return self._make_request("DELETE", f"/project/{project_id}/task/{task_id}")
     
-    def create_subtask(self, subtask_title: str, parent_task_id: str, project_id: str, 
+    def create_subtask(self, subtask_title: str, parent_task_id: str, project_id: str,
                       content: str = None, priority: int = 0) -> Dict:
         """
         Creates a subtask for a parent task within the same project.
-        
+
         Args:
             subtask_title: Title of the subtask
             parent_task_id: ID of the parent task
             project_id: ID of the project (must be same for both parent and subtask)
             content: Optional content/description for the subtask
             priority: Priority level (0-3, where 3 is highest)
-        
+
         Returns:
             API response as a dictionary containing the created subtask
         """
+        self._validate_id(project_id, "project_id")
+        self._validate_id(parent_task_id, "parent_task_id")
         data = {
             "title": subtask_title,
             "projectId": project_id,
