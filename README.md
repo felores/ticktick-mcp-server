@@ -80,56 +80,50 @@ The original TickTick MCP server had **9 security vulnerabilities** ranging from
 
 ## Installation
 
-1. **Clone this repository**:
-   ```bash
-   git clone https://github.com/felores/ticktick-mcp-server.git
-   cd ticktick-mcp-server
-   ```
+### Option 1: Using uvx (Recommended)
 
-2. **Install with uv**:
-   ```bash
-   # Install uv if you don't have it already
-   curl -LsSf https://astral.sh/uv/install.sh | sh
+No installation required! Just run directly with `uvx`:
 
-   # Create a virtual environment
-   uv venv
+```bash
+# Authenticate with TickTick (first time only)
+uvx ticktick-mcp-server auth
 
-   # Activate the virtual environment
-   # On macOS/Linux:
-   source .venv/bin/activate
-   # On Windows:
-   .venv\Scripts\activate
+# Run the server
+uvx ticktick-mcp-server
+```
 
-   # Install the package
-   uv pip install -e .
-   ```
+### Option 2: Using pip
 
-3. **Authenticate with TickTick**:
-   ```bash
-   uv run -m ticktick_mcp.cli auth
-   ```
+```bash
+pip install ticktick-mcp-server
 
-   This will:
-   - Ask for your TickTick Client ID and Client Secret
-   - Open a browser window for you to log in to TickTick
-   - Automatically save your access tokens to a `.env` file with secure permissions
+# Authenticate
+ticktick-mcp-server auth
 
-4. **Test your configuration**:
-   ```bash
-   uv run test_server.py
-   ```
+# Run
+ticktick-mcp-server
+```
+
+### Option 3: From Source
+
+```bash
+git clone https://github.com/felores/ticktick-mcp-server.git
+cd ticktick-mcp-server
+uv pip install -e .
+```
 
 ## Authentication with TickTick
 
 This server uses OAuth2 to authenticate with TickTick:
 
 1. Register your application at the [TickTick Developer Center](https://developer.ticktick.com/manage)
-   - Set the redirect URI to `http://localhost:8000/callback`
+   - Set the redirect URI to `http://localhost:8080/callback`
    - Note your Client ID and Client Secret
 
 2. Run the authentication command:
    ```bash
-   uv run -m ticktick_mcp.cli auth
+   uvx ticktick-mcp-server auth
+   # or if installed: ticktick-mcp-server auth
    ```
 
 3. Follow the prompts to enter your Client ID and Client Secret
@@ -145,7 +139,7 @@ The server handles token refresh automatically.
 [Dida365](https://dida365.com/home) is the China version of TickTick. To use it:
 
 1. Register your application at the [Dida365 Developer Center](https://developer.dida365.com/manage)
-   - Set the redirect URI to `http://localhost:8000/callback`
+   - Set the redirect URI to `http://localhost:8080/callback`
 
 2. Add environment variables to your `.env` file:
    ```env
@@ -173,12 +167,25 @@ The server handles token refresh automatically.
    ```
 
 3. Add the TickTick MCP server configuration:
+
+   **Using uvx (recommended):**
    ```json
    {
       "mcpServers": {
          "ticktick": {
-            "command": "<absolute path to uv>",
-            "args": ["run", "--directory", "<absolute path to ticktick-mcp-server directory>", "-m", "ticktick_mcp.cli", "run"]
+            "command": "uvx",
+            "args": ["ticktick-mcp-server"]
+         }
+      }
+   }
+   ```
+
+   **Or using installed package:**
+   ```json
+   {
+      "mcpServers": {
+         "ticktick": {
+            "command": "ticktick-mcp-server"
          }
       }
    }

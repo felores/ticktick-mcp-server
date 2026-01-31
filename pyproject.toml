@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ticktick-mcp-server"
+version = "0.2.0"
+description = "Security-hardened MCP server for TickTick task management"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Felipe Lores", email = "felores@users.noreply.github.com" },
+]
+maintainers = [
+    { name = "Felipe Lores", email = "felores@users.noreply.github.com" },
+]
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "ticktick",
+    "task-management",
+    "gtd",
+    "productivity",
+    "claude",
+    "ai",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Office/Business :: Scheduling",
+]
+dependencies = [
+    "mcp[cli]>=1.2.0,<2.0.0",
+    "python-dotenv>=1.0.0,<2.0.0",
+    "requests>=2.30.0,<3.0.0",
+]
+
+[project.scripts]
+ticktick-mcp-server = "ticktick_mcp.cli:main"
+ticktick-auth = "ticktick_mcp.authenticate:main"
+
+[project.urls]
+Homepage = "https://github.com/felores/ticktick-mcp-server"
+Repository = "https://github.com/felores/ticktick-mcp-server"
+Issues = "https://github.com/felores/ticktick-mcp-server/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ticktick_mcp"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "ticktick_mcp/**/*.py",
+    "README.md",
+    "LICENSE",
+]

@@ -68,7 +68,7 @@ Would you like to set up authentication now? (y/n): """, end="")
         else:
             print("""
 Authentication is required to use the TickTick MCP server.
-Run 'uv run -m ticktick_mcp.cli auth' to set up authentication later.
+Run 'ticktick-mcp-server auth' to set up authentication later.
             """)
             sys.exit(1)
     
