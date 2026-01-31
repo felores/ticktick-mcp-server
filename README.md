@@ -6,25 +6,13 @@ A **security-hardened** [Model Context Protocol (MCP)](https://modelcontextproto
 
 ## Works With Any MCP Client
 
-This server works with **any MCP-compatible client** — just one command:
+This server works with **any MCP-compatible client**:
 
-```bash
-uvx ticktick-mcp-server
-```
-
-That's it. No complex setup, no dependencies to manage. Works with:
 - **Claude Desktop**
 - **Cursor**
 - **Cline**
 - **Continue**
 - **Any MCP-compatible IDE or tool**
-
-## Requirements
-
-- Python 3.10+
-- [uv](https://github.com/astral-sh/uv) (recommended) or pip
-- TickTick account
-- TickTick API credentials ([get them here](https://developer.ticktick.com/manage))
 
 ## Quick Start
 
@@ -34,16 +22,30 @@ That's it. No complex setup, no dependencies to manage. Works with:
 2. Create a new app with redirect URI: `http://localhost:8080/callback`
 3. Copy your **Client ID** and **Client Secret**
 
-### 2. Configure Your MCP Client
+### 2. Authenticate (One-Time Setup)
 
-Add this to your MCP client config:
+Run this command and enter your credentials when prompted:
+
+```bash
+uvx ticktick-mcp-server auth
+```
+
+This opens your browser to authorize with TickTick. Your tokens are securely saved to `~/.config/ticktick-mcp/credentials.json`.
+
+### 3. Configure Your MCP Client
+
+Add to your MCP client config:
 
 ```json
 {
   "mcpServers": {
     "ticktick": {
       "command": "uvx",
-      "args": ["ticktick-mcp-server"]
+      "args": ["ticktick-mcp-server"],
+      "env": {
+        "TICKTICK_CLIENT_ID": "your-client-id-here",
+        "TICKTICK_CLIENT_SECRET": "your-client-secret-here"
+      }
     }
   }
 }
@@ -56,17 +58,8 @@ Add this to your MCP client config:
 |--------|-------|---------|
 | Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` | `%APPDATA%\Claude\claude_desktop_config.json` |
 | Cursor | `~/.cursor/mcp.json` | `%USERPROFILE%\.cursor\mcp.json` |
-| Cline | VSCode settings | VSCode settings |
 
 </details>
-
-### 3. Authenticate
-
-Run once to connect your TickTick account:
-
-```bash
-uvx ticktick-mcp-server auth
-```
 
 ### 4. Restart Your Client
 
@@ -86,35 +79,28 @@ pip install ticktick-mcp-server
 ticktick-mcp-server auth
 ```
 
-Then use in Claude Desktop config:
-```json
-{
-  "mcpServers": {
-    "ticktick": {
-      "command": "ticktick-mcp-server"
-    }
-  }
-}
-```
-
-### From Source
-
-```bash
-git clone https://github.com/felores/ticktick-mcp-server.git
-cd ticktick-mcp-server
-uv pip install -e .
-```
-
 ---
 
 ## Dida365 (滴答清单) Support
 
-For the China version of TickTick, add these to your `.env` file:
+For the China version of TickTick, add these environment variables to your MCP config:
 
-```env
-TICKTICK_BASE_URL='https://api.dida365.com/open/v1'
-TICKTICK_AUTH_URL='https://dida365.com/oauth/authorize'
-TICKTICK_TOKEN_URL='https://dida365.com/oauth/token'
+```json
+{
+  "mcpServers": {
+    "ticktick": {
+      "command": "uvx",
+      "args": ["ticktick-mcp-server"],
+      "env": {
+        "TICKTICK_CLIENT_ID": "your-client-id",
+        "TICKTICK_CLIENT_SECRET": "your-client-secret",
+        "TICKTICK_BASE_URL": "https://api.dida365.com/open/v1",
+        "TICKTICK_AUTH_URL": "https://dida365.com/oauth/authorize",
+        "TICKTICK_TOKEN_URL": "https://dida365.com/oauth/token"
+      }
+    }
+  }
+}
 ```
 
 Register your app at [Dida365 Developer Center](https://developer.dida365.com/manage).
@@ -169,6 +155,16 @@ Register your app at [Dida365 Developer Center](https://developer.dida365.com/ma
 "Show me everything that's overdue"
 "Break down 'Plan vacation' into 5 subtasks"
 ```
+
+---
+
+## Credential Storage
+
+Tokens are stored securely in:
+- **macOS/Linux**: `~/.config/ticktick-mcp/credentials.json`
+- **Windows**: `%APPDATA%/ticktick-mcp/credentials.json`
+
+To re-authenticate, run `uvx ticktick-mcp-server auth` again.
 
 ---
 
