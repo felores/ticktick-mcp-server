@@ -41,7 +41,7 @@ Add to your MCP client config:
   "mcpServers": {
     "ticktick": {
       "command": "uvx",
-      "args": ["ticktick-mcp-server"],
+      "args": ["ticktick-mcp-server", "run"],
       "env": {
         "TICKTICK_CLIENT_ID": "your-client-id-here",
         "TICKTICK_CLIENT_SECRET": "your-client-secret-here"
@@ -90,7 +90,7 @@ For the China version of TickTick, add these environment variables to your MCP c
   "mcpServers": {
     "ticktick": {
       "command": "uvx",
-      "args": ["ticktick-mcp-server"],
+      "args": ["ticktick-mcp-server", "run"],
       "env": {
         "TICKTICK_CLIENT_ID": "your-client-id",
         "TICKTICK_CLIENT_SECRET": "your-client-secret",
